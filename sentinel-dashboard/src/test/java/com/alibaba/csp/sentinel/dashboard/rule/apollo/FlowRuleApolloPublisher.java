@@ -42,10 +42,10 @@ public class FlowRuleApolloPublisher implements DynamicRulePublisher<List<FlowRu
     private Converter<List<FlowRuleEntity>, String> converter;
 
     @Override
-    public void publish(String app, List<FlowRuleEntity> rules) throws Exception {
+    public boolean publish(String app, List<FlowRuleEntity> rules) throws Exception {
         AssertUtil.notEmpty(app, "app name cannot be empty");
         if (rules == null) {
-            return;
+            return false;
         }
 
         // Increase the configuration
@@ -65,5 +65,6 @@ public class FlowRuleApolloPublisher implements DynamicRulePublisher<List<FlowRu
         namespaceReleaseDTO.setReleasedBy("some-operator");
         namespaceReleaseDTO.setReleaseTitle("Modify or add configurations");
         apolloOpenApiClient.publishNamespace(appId, "DEV", "default", "application", namespaceReleaseDTO);
+        return true;
     }
 }

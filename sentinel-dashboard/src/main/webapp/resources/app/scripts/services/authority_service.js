@@ -9,7 +9,7 @@ angular.module('sentinelDashboardApp').service('AuthorityRuleService', ['$http',
             port: port
         };
         return $http({
-            url: '/authority/rules',
+            url: '/v2/authority/rules',
             params: param,
             method: 'GET'
         });
@@ -17,7 +17,7 @@ angular.module('sentinelDashboardApp').service('AuthorityRuleService', ['$http',
 
     this.addNewRule = function(rule) {
         return $http({
-            url: '/authority/rule',
+            url: '/v2/authority/rule',
             data: rule,
             method: 'POST'
         });
@@ -25,7 +25,7 @@ angular.module('sentinelDashboardApp').service('AuthorityRuleService', ['$http',
 
     this.saveRule = function (entity) {
         return $http({
-            url: '/authority/rule/' + entity.id,
+            url: '/v2/authority/rule/' + entity.id,
             data: entity,
             method: 'PUT'
         });
@@ -33,7 +33,7 @@ angular.module('sentinelDashboardApp').service('AuthorityRuleService', ['$http',
 
     this.deleteRule = function (entity) {
         return $http({
-            url: '/authority/rule/' + entity.id,
+            url: '/v2/authority/rule/' + entity.id,
             method: 'DELETE'
         });
     };

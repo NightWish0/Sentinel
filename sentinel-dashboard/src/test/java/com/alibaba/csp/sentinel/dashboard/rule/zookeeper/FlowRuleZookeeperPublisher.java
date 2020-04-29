@@ -36,7 +36,7 @@ public class FlowRuleZookeeperPublisher implements DynamicRulePublisher<List<Flo
     private Converter<List<FlowRuleEntity>, String> converter;
 
     @Override
-    public void publish(String app, List<FlowRuleEntity> rules) throws Exception {
+    public boolean publish(String app, List<FlowRuleEntity> rules) throws Exception {
         AssertUtil.notEmpty(app, "app name cannot be empty");
 
         String path = ZookeeperConfigUtil.getPath(app);
@@ -46,5 +46,6 @@ public class FlowRuleZookeeperPublisher implements DynamicRulePublisher<List<Flo
         }
         byte[] data = CollectionUtils.isEmpty(rules) ? "[]".getBytes() : converter.convert(rules).getBytes();
         zkClient.setData().forPath(path, data);
+        return true;
     }
 }

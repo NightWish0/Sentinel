@@ -8,7 +8,7 @@ app.service('DegradeService', ['$http', function ($http) {
       port: port
     };
     return $http({
-      url: 'degrade/rules.json',
+      url: '/v2/degrade/rules',
       params: param,
       method: 'GET'
     });
@@ -27,7 +27,7 @@ app.service('DegradeService', ['$http', function ($http) {
       port: rule.port
     };
     return $http({
-      url: '/degrade/new.json',
+      url: '/v2/degrade/new',
       params: param,
       method: 'GET'
     });
@@ -43,7 +43,7 @@ app.service('DegradeService', ['$http', function ($http) {
       timeWindow: rule.timeWindow,
     };
     return $http({
-      url: '/degrade/save.json',
+      url: '/v2/degrade/save',
       params: param,
       method: 'GET'
     });
@@ -55,7 +55,7 @@ app.service('DegradeService', ['$http', function ($http) {
       app: rule.app
     };
     return $http({
-      url: '/degrade/delete.json',
+      url: '/v2/degrade/delete',
       params: param,
       method: 'GET'
     });

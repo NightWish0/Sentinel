@@ -8,165 +8,83 @@
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![Gitter](https://badges.gitter.im/alibaba/Sentinel.svg)](https://gitter.im/alibaba/Sentinel)
 
-## Introduction
+## 介绍
 
-As distributed systems become increasingly popular, the reliability between services is becoming more important than ever before.
-Sentinel takes "flow" as breakthrough point, and works on multiple fields including **flow control**, **circuit breaking** and **system adaptive protection**, to guarantee reliability of microservices.
+主要修改sentinel-dashboard模块来实现动态规则，通过控制台设置规则后将规则推送到统一的规则中心，客户端实现 ReadableDataSource 接口端监听规则中心实时获取变更。
 
-Sentinel has the following features:
+DataSource 扩展常见的实现方式有2种：
 
-- **Rich applicable scenarios**: Sentinel has been wildly used in Alibaba, and has covered almost all the core-scenarios in Double-11 (11.11) Shopping Festivals in the past 10 years, such as “Second Kill” which needs to limit burst flow traffic to meet the system capacity, message peak clipping and valley fills, circuit breaking for unreliable downstream services, cluster flow control, etc.
-- **Real-time monitoring**: Sentinel also provides real-time monitoring ability. You can see the runtime information of a single machine in real-time, and the aggregated runtime info of a cluster with less than 500 nodes.
-- **Widespread open-source ecosystem**: Sentinel provides out-of-box integrations with commonly-used frameworks and libraries such as Spring Cloud, Dubbo and gRPC. You can easily use Sentinel by simply add the adapter dependency to your services.
-- **Various SPI extensions**: Sentinel provides easy-to-use SPI extension interfaces that allow you to quickly customize your logic, for example, custom rule management, adapting data sources, and so on.
+- 拉模式：客户端主动向某个规则管理中心定期轮询拉取规则，这个规则中心可以是 RDBMS、文件，甚至是 VCS 等。这样做的方式是简单，缺点是无法及时获取变更；
+- 推模式：规则中心统一推送，客户端通过注册监听器的方式时刻监听变化，比如使用 Nacos、Zookeeper 等配置中心。这种方式有更好的实时性和一致性保证。
 
-Features overview:
+这里使用推模式，同时数据源使用的是Nacos作为规则配置中心。
 
-![features-of-sentinel](./doc/image/sentinel-features-overview-en.png)
 
-## Documentation
+## 修改步骤
 
-See the [中文文档](https://github.com/alibaba/Sentinel/wiki/%E4%BB%8B%E7%BB%8D) for document in Chinese.
-
-See the [Wiki](https://github.com/alibaba/Sentinel/wiki) for full documentation, examples, blog posts, operational details and other information.
-
-Sentinel provides integration modules for various open-source frameworks
-(e.g. Spring Cloud, Apache Dubbo, gRPC, Spring WebFlux, Reactor) and service mesh.
-You can refer to [the document](https://github.com/alibaba/Sentinel/wiki/Adapters-to-Popular-Framework) for more information.
-
-If you are using Sentinel, please [**leave a comment here**](https://github.com/alibaba/Sentinel/issues/18) to tell us your scenario to make Sentinel better.
-It's also encouraged to add the link of your blog post, tutorial, demo or customized components to [**Awesome Sentinel**](./doc/awesome-sentinel.md).
-
-## Ecosystem Landscape
-
-![ecosystem-landscape](./doc/image/sentinel-opensource-eco-landscape-en.png)
-
-## Quick Start
-
-Below is a simple demo that guides new users to use Sentinel in just 3 steps. It also shows how to monitor this demo using the dashboard.
-
-### 1. Add Dependency
-
-**Note:** Sentinel requires Java 7 or later.
-
-If your application is build in Maven, just add the following dependency in `pom.xml`.
+#### 1.修改父pom.xml文件
 
 ```xml
-<!-- replace here with the latest version -->
 <dependency>
-    <groupId>com.alibaba.csp</groupId>
-    <artifactId>sentinel-core</artifactId>
-    <version>1.7.1</version>
+     <groupId>com.alibaba.csp</groupId>
+     <artifactId>sentinel-datasource-nacos</artifactId>
+<!-- <scope>test</scope> -->
 </dependency>
 ```
+#### 2.复制使用官方提供的相关类并修改
 
-If not, you can download JAR in [Maven Center Repository](https://mvnrepository.com/artifact/com.alibaba.csp/sentinel-core).
+将```src/test/java/com/alibaba/csp/sentinel/dashboard/rule/nacos```文件复制到
+```src/main/java/com/alibaba/csp/sentinel/dashboard/rule```下
 
-### 2. Define Resource
+具体修改可参考项目对应代码。
 
-Wrap your code snippet via Sentinel API: `SphU.entry(resourceName)`.
-In below example, it is `System.out.println("hello world");`:
+#### 3.修改 ```application.properties```
 
+添加一下配置，配置可以自定义，主要用于NacosConfig中参数的使用
 ```java
-try (Entry entry = SphU.entry("HelloWorld")) {
-    // Your business logic here.
-    System.out.println("hello world");
-} catch (BlockException e) {
-    // Handle rejected request.
-    e.printStackTrace();
-}
-// try-with-resources auto exit
+# nacos地址
+nacos.address=192.168.1.30:8848
+# nacos的命名空间，默认使用public则无需配置
+nacos.namespace=a0bc6fce-5b0a-47b3-8bfd-8c64eaf15862
 ```
+#### 4.修改 ```src/main/java/com/alibaba/csp/sentinel/dashboard/controller/v2```下的controller
 
-So far the code modification is done. We also provide [annotation support module](https://github.com/alibaba/Sentinel/blob/master/sentinel-extension/sentinel-annotation-aspectj/README.md) to define resource easier.
+官方已经提供一个```FlowControllerV2.java```的限流规则的示例，根据示例添加降级熔断、热点等规则的controller即可。
 
-### 3. Define Rules
+具体修改可参考项目对应代码。
 
-If we want to limit the access times of the resource, we can **set rules to the resource**.
-The following code defines a rule that limits access to the resource to 20 times per second at the maximum.
+#### 5.修改控制台的页面
 
-```java
-List<FlowRule> rules = new ArrayList<>();
-FlowRule rule = new FlowRule();
-rule.setResource("HelloWorld");
-// set limit qps to 20
-rule.setCount(20);
-rule.setGrade(RuleConstant.FLOW_GRADE_QPS);
-rules.add(rule);
-FlowRuleManager.loadRules(rules);
-```
+页面修改较为麻烦，以官方示例流控规则修改为例，主要关联以下文件修改，
 
-For more information, please refer to [How To Use](https://github.com/alibaba/Sentinel/wiki/How-to-Use).
+- 1.修改 ```src/main/webapp/resources/app/scripts/directives/sidebar/sidebar.html```
+    ```html
+    <li ui-sref-active="active" ng-if="!entry.isGateway">
+       <a ui-sref="dashboard.flowV1({app: entry.app})">
+       <i class="glyphicon glyphicon-filter"></i>&nbsp;&nbsp;流控规则</a>
+    </li>
+    ```
+    这里为了便于版本统一，修改```flowV1```为```flowV2```如下，官方原来是改为```flowV1```
+    ```html
+    <li ui-sref-active="active" ng-if="!entry.isGateway">
+       <a ui-sref="dashboard.flowV2({app: entry.app})">
+       <i class="glyphicon glyphicon-filter"></i>&nbsp;&nbsp;流控规则</a>
+    </li>
+    ```
 
-### 4. Check the Result
+- 2.修改```src/main/webapp/resources/app/scripts/app.js```，修改```flow```为```flowV2```，其他规则路由则无需改动。
+  
+- 3.添加```src/main/webapp/resources/app/views/flow_v2.html```，这里官方已经添加，无需改动，其他规则路由则无需改动。
 
-After running the demo for a while, you can see the following records in `~/logs/csp/${appName}-metrics.log.{date}` (When using the default `DateFileLogHandler`).
+- 4.添加```src/main/webapp/resources/app/scripts/services/flow_service_v2.js```，这里官方已经添加，无需改动，其他规则路由则无需改动。
 
-```
-|--timestamp-|------date time----|-resource-|p |block|s |e|rt  |occupied
-1529998904000|2018-06-26 15:41:44|HelloWorld|20|0    |20|0|0   |0
-1529998905000|2018-06-26 15:41:45|HelloWorld|20|5579 |20|0|728 |0
-1529998906000|2018-06-26 15:41:46|HelloWorld|20|15698|20|0|0   |0
-1529998907000|2018-06-26 15:41:47|HelloWorld|20|19262|20|0|0   |0
-1529998908000|2018-06-26 15:41:48|HelloWorld|20|19502|20|0|0   |0
-1529998909000|2018-06-26 15:41:49|HelloWorld|20|18386|20|0|0   |0
+- 5.添加```src/main/webapp/resources/app/scripts/controllers/flow_v2.js```，这里官方已经添加，无需改动，其他规则路由，
+如果controller的地址改变则需要修改。
 
-p stands for incoming request, block for blocked by rules, success for success handled by Sentinel, e for exception count, rt for average response time (ms), occupied stands for occupiedPassQps since 1.5.0 which enable us booking more than 1 shot when entering.
-```
+降级规则、热点规则等页面修改请参考项目对应代码。
 
-This shows that the demo can print "hello world" 20 times per second.
+## 结束
 
-More examples and information can be found in the [How To Use](https://github.com/alibaba/Sentinel/wiki/How-to-Use) section.
+到此sentinel-dashboard的规则持久化完成，可以启动项目测试是否正常。
 
-The working principles of Sentinel can be found in [How it works](https://github.com/alibaba/Sentinel/wiki/How-it-works) section.
-
-Samples can be found in the [sentinel-demo](https://github.com/alibaba/Sentinel/tree/master/sentinel-demo) module.
-
-### 5. Start Dashboard
-
-Sentinel also provides a simple dashboard application, on which you can monitor the clients and configure the rules in real time.
-
-![dashboard](https://user-images.githubusercontent.com/9434884/55449295-84866d80-55fd-11e9-94e5-d3441f4a2b63.png)
-
-For details please refer to [Dashboard](https://github.com/alibaba/Sentinel/wiki/Dashboard).
-
-## Trouble Shooting and Logs
-
-Sentinel will generate logs for troubleshooting and real-time monitoring.
-All the information can be found in [logs](https://github.com/alibaba/Sentinel/wiki/Logs).
-
-## Bugs and Feedback
-
-For bug report, questions and discussions please submit [GitHub Issues](https://github.com/alibaba/sentinel/issues).
-
-Contact us: sentinel@linux.alibaba.com
-
-## Contributing
-
-Contributions are always welcomed! Please see [CONTRIBUTING](./CONTRIBUTING.md) for detailed guidelines.
-
-You can start with the issues labeled with [`good first issue`](https://github.com/alibaba/Sentinel/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
-
-## Credits
-
-Thanks [Guava](https://github.com/google/guava), which provides some inspiration on rate limiting.
-
-And thanks for all [contributors](https://github.com/alibaba/Sentinel/graphs/contributors) of Sentinel!
-
-## Who is using
-
-These are only part of the companies using Sentinel, for reference only. If you are using Sentinel, please [add your company here](https://github.com/alibaba/Sentinel/issues/18) to tell us your scenario to make Sentinel better :)
-
-![Alibaba Group](https://docs.alibabagroup.com/assets2/images/en/global/logo_header.png)
-![Taiping Renshou](http://www.cntaiping.com/tplresource/cms/www/taiping/img/home_new/tp_logo_img.png)
-![Shunfeng Technology](https://user-images.githubusercontent.com/9434884/48463502-2f48eb80-e817-11e8-984f-2f9b1b789e2d.png)
-![Mandao](https://user-images.githubusercontent.com/9434884/48463559-6cad7900-e817-11e8-87e4-42952b074837.png)
-![每日优鲜](https://home.missfresh.cn/statics/img/logo.png)
-![二维火](https://user-images.githubusercontent.com/9434884/49358468-bc43de00-f70d-11e8-97fe-0bf05865f29f.png)
-![文轩在线](http://static.winxuancdn.com/css/v2/images/logo.png)
-![客如云](https://www.keruyun.com/static/krynew/images/logo.png)
-![亲宝宝](https://stlib.qbb6.com/wclt/img/home_hd/version1/title_logo.png)
-![杭州光云科技](https://www.raycloud.com/images/logo.png)
-![金汇金融](https://res.jinhui365.com/r/images/logo2.png?v=1.527)
-![闪电购](http://cdn.52shangou.com/shandianbang/official-source/3.1.1/build/images/logo.png)
-![拼多多](http://cdn.pinduoduo.com/assets/img/pdd_logo_v3.png)
+除此之外，动态规则修改生效还需要客户端添加nacos的配置中心监听代码来完成。

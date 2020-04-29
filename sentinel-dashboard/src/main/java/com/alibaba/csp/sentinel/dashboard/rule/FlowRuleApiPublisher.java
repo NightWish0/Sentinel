@@ -40,12 +40,12 @@ public class FlowRuleApiPublisher implements DynamicRulePublisher<List<FlowRuleE
     private AppManagement appManagement;
 
     @Override
-    public void publish(String app, List<FlowRuleEntity> rules) throws Exception {
+    public boolean publish(String app, List<FlowRuleEntity> rules) throws Exception {
         if (StringUtil.isBlank(app)) {
-            return;
+            return false;
         }
         if (rules == null) {
-            return;
+            return false;
         }
         Set<MachineInfo> set = appManagement.getDetailApp(app).getMachines();
 
@@ -56,5 +56,6 @@ public class FlowRuleApiPublisher implements DynamicRulePublisher<List<FlowRuleE
             // TODO: parse the results
             sentinelApiClient.setFlowRuleOfMachine(app, machine.getIp(), machine.getPort(), rules);
         }
+        return true;
     }
 }
